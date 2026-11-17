@@ -12,3 +12,4 @@ VUA-SEN307 introduces relational database design and SQL, using MySQL to create,
 - week04/ - Lab 2: Database Design and Normalization (lab2_normalization.md, lab2_model.mwb, and lab2_erd.png)
 - week05/ - Lab 3: Data Definition Language (DDL): Creating Schemas (schema.sql, constraints_test.sql, lab3_erd.png, screenshots, and LAB_REPORT.md)
 - week06/ - Lab 4: Data Manipulation Language (DML): Insert, Update, Delete (data.sql, lab4_notes.md, screenshots, and LAB_REPORT.md)
+- week07/ - Lab 5: Querying Data: SELECT, Filtering and Joins (lab5_queries.sql, screenshots, and LAB_REPORT.md)

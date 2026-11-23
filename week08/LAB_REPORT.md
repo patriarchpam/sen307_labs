@@ -1,5 +1,5 @@
 # VUA-SEN307 Database Systems — Week 8 Practical Lab Report
-**Lab 6: Aggregate Functions, Grouping and Subqueries**
+**Lab 5: Querying Data: SELECT, Filtering and Joins**
 
 ---
 
@@ -15,176 +15,169 @@
 
 ## 1. Objectives & Overview
 The objectives of this practical session were to:
-1. Summarize relational data using SQL aggregate functions (`COUNT`, `SUM`, `AVG`, `MIN`, `MAX`).
-2. Group query results using `GROUP BY` and filter aggregated groups using `HAVING`.
-3. Write and compare **non-correlated** and **correlated** subqueries.
+1. Write `SELECT` queries using `WHERE`, `ORDER BY`, and `LIMIT` / `OFFSET`.
+2. Combine multiple filtering conditions using `AND`, `OR`, `IN`, and `BETWEEN` with explicit parenthesis grouping.
+3. Combine normalized relational tables using `INNER JOIN`, `LEFT JOIN`, and `RIGHT JOIN`, and explain how they differ.
 
 ---
 
-## 2. Part 1: Aggregates and Grouping Summary
+## 2. Part 1: How Joins Work Summary
 
-| Clause | Purpose |
+| Join Type | What It Returns |
 | :--- | :--- |
-| **`COUNT` / `SUM` / `AVG` / `MIN` / `MAX`** | Condense multiple rows into a single summary value. |
-| **`GROUP BY`** | Calculate the summary value separately for each distinct group. |
-| **`WHERE`** | Filters individual **rows** *before* grouping occurs (cannot use aggregates directly). |
-| **`HAVING`** | Filters aggregated **groups** *after* `GROUP BY` (can use aggregate functions). |
+| **`INNER JOIN`** | Only rows that have a matching key in **both** joined tables. |
+| **`LEFT JOIN`** | **All** rows from the left table, plus matched columns from the right table (`NULL` where no match exists). |
+| **`RIGHT JOIN`** | **All** rows from the right table, plus matched columns from the left table (`NULL` where no match exists). |
 
 ---
 
-## 3. Part 2: Tasks 1–3 (Aggregates, `GROUP BY`, and `HAVING`)
+## 3. Part 2 & Part 3: Tasks 1–5 and Challenge (`lab5_queries.sql`)
 
-### Task 1: Count Students Enrolled in Each Course (Including Courses with Zero Students)
+### Task 1: Retrieve All Students in One Department, Sorted A–Z
 ```sql
-SELECT c.course_id,
-       c.course_code,
-       c.course_title,
-       COUNT(e.student_id) AS total_students
-FROM Course c
-LEFT JOIN Enrolment e ON c.course_id = e.course_id
-GROUP BY c.course_id, c.course_code, c.course_title
-ORDER BY total_students DESC, c.course_code ASC;
-```
-**Why `LEFT JOIN` with `COUNT(e.student_id)` gives `0` rather than `1` for an empty course:**
-When a course has no rows in `Enrolment`, `LEFT JOIN` still outputs one row for that course with `e.student_id` set to `NULL`. Because `COUNT(column)` counts only non-`NULL` values, `COUNT(e.student_id)` ignores the `NULL` and returns `0`, whereas `COUNT(*)` counts rows regardless of `NULL` values and would return `1`.
-
-```text
-+-----------+-------------+-----------------------------------------+----------------+
-| course_id | course_code | course_title                            | total_students |
-+-----------+-------------+-----------------------------------------+----------------+
-|         1 | SEN307      | Database Systems                        |             10 |
-|         5 | AIN301      | Introduction to Artificial Intelligence |              5 |
-|         6 | AIN305      | Machine Learning                        |              4 |
-|         3 | COS301      | Operating Systems                       |              4 |
-|         2 | SEN301      | Software Architecture                   |              4 |
-|         4 | COS305      | Computer Networks                       |              3 |
-|         8 | DTS301      | Data Visualization and Analytics        |              3 |
-|         9 | DTS305      | Big Data Technologies                   |              3 |
-|         7 | AIN307      | Natural Language Processing             |              2 |
-|        10 | CYB301      | Network Security                        |              2 |
-+-----------+-------------+-----------------------------------------+----------------+
-```
-
----
-
-### Task 2: Find Courses with More Than 3, 5, and 7 Students Using `HAVING`
-```sql
--- Threshold > 3
-SELECT c.course_code, c.course_title, COUNT(e.student_id) AS total_students
-FROM Course c LEFT JOIN Enrolment e ON c.course_id = e.course_id
-GROUP BY c.course_id, c.course_code, c.course_title
-HAVING COUNT(e.student_id) > 3
-ORDER BY total_students DESC, c.course_code ASC;
-
--- Threshold > 5
-SELECT c.course_code, c.course_title, COUNT(e.student_id) AS total_students
-FROM Course c LEFT JOIN Enrolment e ON c.course_id = e.course_id
-GROUP BY c.course_id, c.course_code, c.course_title
-HAVING COUNT(e.student_id) > 5
-ORDER BY total_students DESC;
-
--- Threshold > 7
-SELECT c.course_code, c.course_title, COUNT(e.student_id) AS total_students
-FROM Course c LEFT JOIN Enrolment e ON c.course_id = e.course_id
-GROUP BY c.course_id, c.course_code, c.course_title
-HAVING COUNT(e.student_id) > 7
-ORDER BY total_students DESC;
-```
-**Results:**
-- `HAVING COUNT(e.student_id) > 3`: Returns 5 courses (`SEN307` [10], `AIN301` [5], `AIN305` [4], `COS301` [4], `SEN301` [4]).
-- `HAVING COUNT(e.student_id) > 5` and `> 7`: Both return `SEN307` (`Database Systems`, `10` students).
-
----
-
-### Task 3: Average Number of Courses Taken per Student (Including Zero Courses)
-```sql
-SELECT ROUND(AVG(course_count), 2) AS avg_courses_per_student
-FROM (
-    SELECT s.student_id,
-           COUNT(e.course_id) AS course_count
-    FROM Student s
-    LEFT JOIN Enrolment e ON s.student_id = e.student_id
-    GROUP BY s.student_id
-) AS per_student;
-```
-```text
-+-------------------------+
-| avg_courses_per_student |
-+-------------------------+
-|                    1.90 |
-+-------------------------+
-```
-**Explanation:** With 40 total enrolments across all 21 students in the `Student` table (including the 3 students with `0` enrolments), the average is $40 / 21 \approx 1.90$ courses per student.
-
----
-
-## 4. Part 3: Subqueries (Tasks 4–5)
-
-### Task 4 (Non-Correlated Subquery): Students Not Enrolled in Any Course
-```sql
-SELECT student_id, matric_no, full_name, dept_id
-FROM Student
-WHERE student_id NOT IN (
-    SELECT student_id
-    FROM Enrolment
-)
-ORDER BY full_name ASC;
-```
-```text
-+------------+------------------+------------------+---------+
-| student_id | matric_no        | full_name        | dept_id |
-+------------+------------------+------------------+---------+
-|         21 | 20239999         | Transfer Student |       1 |
-|         20 | VUG/SEN/24/12020 | Yakubu Danladi   |       1 |
-|         19 | VUG/CYB/24/12019 | Zainab Bello     |       5 |
-+------------+------------------+------------------+---------+
-```
-**Comparison with Week 7 Task 3:** The non-correlated subquery runs once to fetch all `student_id` values present in `Enrolment`, and the outer query filters `Student` with `NOT IN`. It produces the exact same 3 unenrolled students as the `LEFT JOIN ... WHERE c.course_title IS NULL` query in Week 7 Task 3.
-
----
-
-### Task 5 (Correlated Subquery): Top-Enrolled Student(s) in Each Department
-```sql
-SELECT d.dept_name,
-       s.full_name,
-       (SELECT COUNT(*) FROM Enrolment e WHERE e.student_id = s.student_id) AS courses
+SELECT s.student_id, s.matric_no, s.full_name, s.gender, s.date_of_birth, d.dept_name
 FROM Student s
-JOIN Department d ON s.dept_id = d.dept_id
-WHERE (SELECT COUNT(*) FROM Enrolment e WHERE e.student_id = s.student_id)
-    = (
-        SELECT COUNT(e2.enrolment_id)
-        FROM Student s2
-        LEFT JOIN Enrolment e2 ON s2.student_id = e2.student_id
-        WHERE s2.dept_id = s.dept_id
-        GROUP BY s2.student_id
-        ORDER BY COUNT(e2.enrolment_id) DESC
-        LIMIT 1
-    )
-ORDER BY d.dept_name ASC, s.full_name ASC;
+INNER JOIN Department d ON s.dept_id = d.dept_id
+WHERE d.dept_name = 'Software Engineering'
+ORDER BY s.full_name ASC;
 ```
+**Explanation:** Joins `Student` to `Department` on `dept_id`, filters for `'Software Engineering'`, and sorts alphabetically (`ASC`) by `full_name`.
+
 ```text
-+-------------------------+------------------------+---------+
-| dept_name               | full_name              | courses |
-+-------------------------+------------------------+---------+
-| Artificial Intelligence | Babatunde Ogunleye     |       3 |
-| Artificial Intelligence | Blessing Eze           |       3 |
-| Artificial Intelligence | Nneka Chukwu           |       3 |
-| Artificial Intelligence | Usman Garba            |       3 |
-| Computer Science        | Aisha Mohammed         |       3 |
-| Computer Science        | Fatima Abubakar        |       3 |
-| Computer Science        | Kelechi Nnaji          |       3 |
-| Cybersecurity           | Ebuka Obi              |       1 |
-| Cybersecurity           | Hauwa Yakubu           |       1 |
-| Data Science            | Damilola Ojo           |       2 |
-| Data Science            | Sadiq Lawal            |       2 |
-| Software Engineering    | Pam Patriarch Yeipyeng |       3 |
-+-------------------------+------------------------+---------+
++------------+------------------+------------------------+--------+---------------+----------------------+
+| student_id | matric_no        | full_name              | gender | date_of_birth | dept_name            |
++------------+------------------+------------------------+--------+---------------+----------------------+
+|          4 | VUG/SEN/24/12004 | Chidinma Okafor        | F      | 2006-01-22    | Software Engineering |
+|          5 | VUG/SEN/24/12005 | Oluwaseun Adebayo      | M      | 2003-08-19    | Software Engineering |
+|          3 | VUG/SEN/24/12478 | Pam Patriarch Yeipyeng | M      | 2005-06-15    | Software Engineering |
+|         21 | 20239999         | Transfer Student       | NULL   | NULL          | Software Engineering |
+|         20 | VUG/SEN/24/12020 | Yakubu Danladi         | M      | 2007-04-21    | Software Engineering |
++------------+------------------+------------------------+--------+---------------+----------------------+
 ```
-**Explanation:** The correlated subquery references `s.dept_id` from the outer query, computing the highest course count among students in that specific department (`ORDER BY COUNT(e2.enrolment_id) DESC LIMIT 1`). Every student whose enrolment count equals their department's maximum is returned (allowing ties).
 
 ---
 
-## 5. Submission Checklist Verification
-- [x] **`week08/lab6_queries.sql`**: Contains all five tasks with detailed explanatory comments.
-- [x] **Result Screenshots**: Windows Command Prompt screenshots saved for each task in `week08/` and `week08/screenshots/`.
+### Task 2: Courses with Their Lecturers (`INNER JOIN`)
+```sql
+SELECT c.course_code, c.course_title, l.staff_no, l.full_name AS lecturer_name, ca.academic_session
+FROM Course c
+INNER JOIN CourseAllocation ca ON c.course_id = ca.course_id
+INNER JOIN Lecturer l          ON ca.lecturer_id = l.lecturer_id
+ORDER BY c.course_code ASC, l.full_name ASC;
+```
+**Explanation:** Connects `Course` to `Lecturer` across the `CourseAllocation` junction table (`Course -> CourseAllocation -> Lecturer`). `SEN307` (`Database Systems`) appears twice because it is co-taught by `Dr Amaka Okafor` and `Dr Musa Bello`.
+
+```text
++-------------+-----------------------------------------+------------+---------------------+------------------+
+| course_code | course_title                            | staff_no   | lecturer_name       | academic_session |
++-------------+-----------------------------------------+------------+---------------------+------------------+
+| AIN301      | Introduction to Artificial Intelligence | VUA/ST/105 | Dr Ibrahim Danjuma  | 2026/2027        |
+| AIN305      | Machine Learning                        | VUA/ST/106 | Dr Ngozi Nwosu      | 2026/2027        |
+| AIN307      | Natural Language Processing             | VUA/ST/105 | Dr Ibrahim Danjuma  | 2026/2027        |
+| COS301      | Operating Systems                       | VUA/ST/103 | Dr Chinedu Eze      | 2026/2027        |
+| COS305      | Computer Networks                       | VUA/ST/104 | Dr Funke Adeyemi    | 2026/2027        |
+| CYB301      | Network Security                        | VUA/ST/109 | Dr Emeka Nwachukwu  | 2026/2027        |
+| DTS301      | Data Visualization and Analytics        | VUA/ST/107 | Dr Tunde Bakare     | 2026/2027        |
+| DTS305      | Big Data Technologies                   | VUA/ST/108 | Dr Zainab Abdullahi | 2026/2027        |
+| SEN301      | Software Architecture                   | VUA/ST/102 | Dr Musa Bello       | 2026/2027        |
+| SEN307      | Database Systems                        | VUA/ST/101 | Dr Amaka Okafor     | 2026/2027        |
+| SEN307      | Database Systems                        | VUA/ST/102 | Dr Musa Bello       | 2026/2027        |
++-------------+-----------------------------------------+------------+---------------------+------------------+
+```
+
+---
+
+### Task 3: Students and Their Courses (`LEFT JOIN`)
+```sql
+-- Every student and their courses, including students with no enrolments
+SELECT s.full_name, c.course_title
+FROM Student s
+LEFT JOIN Enrolment e ON s.student_id = e.student_id
+LEFT JOIN Course c    ON e.course_id = c.course_id
+ORDER BY s.full_name ASC, c.course_title ASC;
+
+-- Show ONLY the students with no courses
+SELECT s.student_id, s.matric_no, s.full_name, c.course_title
+FROM Student s
+LEFT JOIN Enrolment e ON s.student_id = e.student_id
+LEFT JOIN Course c    ON e.course_id = c.course_id
+WHERE c.course_title IS NULL
+ORDER BY s.full_name ASC;
+```
+**Explanation:** `LEFT JOIN` keeps all rows from `Student` even when a student has no matching row in `Enrolment`, filling `c.course_title` with `NULL`. Adding `WHERE c.course_title IS NULL` isolates those unenrolled students.
+
+```text
++------------+------------------+------------------+--------------+
+| student_id | matric_no        | full_name        | course_title |
++------------+------------------+------------------+--------------+
+|         21 | 20239999         | Transfer Student | NULL         |
+|         20 | VUG/SEN/24/12020 | Yakubu Danladi   | NULL         |
+|         19 | VUG/CYB/24/12019 | Zainab Bello     | NULL         |
++------------+------------------+------------------+--------------+
+```
+
+---
+
+### Task 4: Filtering with `AND` / `OR` / `IN` / `BETWEEN`
+```sql
+SELECT student_id, matric_no, full_name, gender, date_of_birth, dept_id
+FROM Student
+WHERE gender = 'F'
+  AND (dept_id IN (1, 3) OR dept_id = 2)
+  AND date_of_birth BETWEEN '2004-01-01' AND '2006-12-31'
+ORDER BY date_of_birth ASC;
+```
+**Explanation:** Combines `AND`, `OR` (wrapped in parentheses so `AND` does not bind more tightly than `OR`), `IN`, and `BETWEEN` to find female students in Software Engineering (`1`), Artificial Intelligence (`3`), or Computer Science (`2`) born between `2004-01-01` and `2006-12-31`.
+
+```text
++------------+------------------+-----------------+--------+---------------+---------+
+| student_id | matric_no        | full_name       | gender | date_of_birth | dept_id |
++------------+------------------+-----------------+--------+---------------+---------+
+|         12 | VUG/AIN/24/12012 | Blessing Eze    | F      | 2004-10-30    |       3 |
+|          1 | 20231234         | Ada Obi         | F      | 2005-03-14    |       2 |
+|          6 | VUG/CSC/24/12006 | Fatima Abubakar | F      | 2005-09-10    |       2 |
+|          4 | VUG/SEN/24/12004 | Chidinma Okafor | F      | 2006-01-22    |       1 |
+|         10 | VUG/AIN/24/12010 | Nneka Chukwu    | F      | 2006-07-25    |       3 |
++------------+------------------+-----------------+--------+---------------+---------+
+```
+
+---
+
+### Task 5: Paginating Enrolments with `LIMIT` and `OFFSET`
+```sql
+-- Page 1 (rows 1–10)
+SELECT e.enrolment_id, s.matric_no, s.full_name, c.course_code, c.course_title
+FROM Enrolment e
+INNER JOIN Student s ON e.student_id = s.student_id
+INNER JOIN Course c  ON e.course_id = c.course_id
+ORDER BY e.enrolment_id ASC
+LIMIT 10 OFFSET 0;
+
+-- Page 2 (rows 11–20)
+SELECT e.enrolment_id, s.matric_no, s.full_name, c.course_code, c.course_title
+FROM Enrolment e
+INNER JOIN Student s ON e.student_id = s.student_id
+INNER JOIN Course c  ON e.course_id = c.course_id
+ORDER BY e.enrolment_id ASC
+LIMIT 10 OFFSET 10;
+```
+**Why `ORDER BY` must always be used with `LIMIT`:** Without `ORDER BY`, SQL does not guarantee any fixed row order. Across separate paginated queries (`OFFSET 0`, `OFFSET 10`), the database engine could return rows in a different sequence, causing some records to appear on both pages or be missed altogether.
+
+---
+
+### Challenge: Rewriting Task 3 Using `RIGHT JOIN`
+```sql
+SELECT s.full_name, c.course_title
+FROM Course c
+INNER JOIN Enrolment e ON c.course_id = e.course_id
+RIGHT JOIN Student s   ON e.student_id = s.student_id
+ORDER BY s.full_name ASC, c.course_title ASC;
+```
+**Which version is easier to read?** The `LEFT JOIN` version in Task 3 is much easier to read because SQL queries are read top-to-bottom starting from the primary subject (`FROM Student s`) and attaching optional details (`Enrolment`, `Course`) to the right.
+
+---
+
+## 4. Submission Checklist Verification
+- [x] **`week08/lab5_queries.sql`**: Contains all five tasks (plus Recap and the `RIGHT JOIN` challenge) with explanatory comments below each query.
+- [x] **Result Screenshots**: Windows Command Prompt screenshots saved for every task in `week08/` and `week08/screenshots/`.
 - [x] **Pushed to GitHub**: Committed and pushed to `main`.

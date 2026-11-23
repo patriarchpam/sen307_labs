@@ -1,5 +1,5 @@
 -- ============================================================================
--- VUA-SEN307 Lab 6: Aggregate Functions, Grouping and Subqueries (Week 8)
+-- VUA-SEN307 Lab 6: Week 9 - Aggregate Functions, Grouping and Subqueries
 -- Name: Pam Patriarch Yeipyeng      Matric: VUG/SEN/24/12478
 -- ============================================================================
 
@@ -121,7 +121,7 @@ ORDER BY full_name ASC;
 -- independently of the outer query, then filters Student for rows whose student_id
 -- is NOT IN that list. It returns the exact same 3 unenrolled students (Transfer Student,
 -- Yakubu Danladi, and Zainab Bello) as the LEFT JOIN ... WHERE c.course_title IS NULL
--- query from Week 7 Task 3.
+-- query from Lab 5 Task 3.
 
 
 -- ============================================================================
